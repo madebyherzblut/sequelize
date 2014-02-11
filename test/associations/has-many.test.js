@@ -971,7 +971,7 @@ describe(Support.getTestDialectTeaser("HasMany"), function() {
                 u.getProjects().success(function(projects) {
                   var project = projects[0]
 
-                  expect(project.UserProjects).to.be.defined
+                  expect(project).to.have.property('UserProjects')
                   expect(project.status).not.to.exist
                   expect(project.UserProjects.status).to.equal('active')
                   expect(project.UserProjects.data).to.equal(42)
@@ -992,7 +992,7 @@ describe(Support.getTestDialectTeaser("HasMany"), function() {
                 u.getProjects({ joinTableAttributes: ['status']}).success(function(projects) {
                   var project = projects[0]
 
-                  expect(project.UserProjects).to.be.defined
+                  expect(project).to.have.property('UserProjects')
                   expect(project.status).not.to.exist
                   expect(project.UserProjects.status).to.equal('active')
                   expect(project.UserProjects.data).not.to.exist
@@ -1003,6 +1003,41 @@ describe(Support.getTestDialectTeaser("HasMany"), function() {
             })
           })
         })
+
+        it('should be able to join from tables with a schema option', function(done) {
+          var self = this
+          var AcmeUser = self.User.schema('acme')
+            , AcmeProject = self.Project.schema('acme');
+
+          AcmeUser.hasMany(AcmeProject)
+          AcmeProject.hasMany(AcmeUser)
+
+          var run = function() {
+            self.sequelize.sync().success(function() {
+              AcmeUser.create().success(function(u) {
+                AcmeProject.create().success(function(p) {
+                  u.addProject(p, { status: 'active', data: 42 }).success(function() {
+                    u.getProjects().success(function(projects) {
+                      expect(projects).to.have.length(1);
+                      expect(projects[0]).to.have.property('ProjectsUsers')
+                      done()
+                    })
+                  })
+                })
+              })
+            });
+          }
+
+          if (Support.getTestDialect() === "postgres") {
+            self.sequelize.dropAllSchemas().success(function() {
+              self.sequelize.createSchema('acme').success(function() {
+                run.call(self)
+              })
+            })
+          } else {
+            run.call(self)
+          }
+        });
       })
 
       describe('inserting in join table', function () {
